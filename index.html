@@ -8,8 +8,6 @@
 body { margin: 0; padding: 20px; font-family: Arial, sans-serif; background-color: #121212; color: #fff; }
 button { background-color: #1DB954; border: none; padding: 10px 20px; color: #fff; font-size: 16px; border-radius: 25px; cursor: pointer; }
 #login-btn { display: block; margin: 50px auto; }
-#progress { margin: 20px 0; text-align: center; }
-#progress-bar { width: 100%; }
 .secao { margin-bottom: 20px; }
 .secao h2 { margin-bottom: 10px; }
 .lista { display: flex; flex-direction: column; gap: 10px; }
@@ -25,7 +23,6 @@ button { background-color: #1DB954; border: none; padding: 10px 20px; color: #ff
 <body>
 <div id="login-container"><button id="login-btn">Login com Spotify</button></div>
 <div id="progress">
-  <progress id="progress-bar" value="0" max="100"></progress>
   <div id="progress-text"></div>
 </div>
 <div id="result-container"></div>
@@ -37,14 +34,11 @@ let accessToken = null, topArtistsSet = new Set(), genreDict = null;
 const loginBtn = document.getElementById('login-btn'),
       loginContainer = document.getElementById('login-container'),
       progressDiv = document.getElementById('progress'),
-      progressBar = document.getElementById('progress-bar'),
       progressText = document.getElementById('progress-text'),
       resultContainer = document.getElementById('result-container'),
       newRecBtn = document.getElementById('new-rec-btn');
 function showProgress(message, current, total){
 	if(total !== undefined){
-		progressBar.max = total;
-		progressBar.value = current;
 		progressText.innerText = message + ' (' + current + ' / ' + total + ')';
 	} else {
 		progressText.innerText = message;
@@ -187,7 +181,7 @@ function renderResults(data){
 	let order = [
 		{ title: 'Recomendações com maior potencial', key: 'mais' },
 		{ title: 'Recomendações com potencial médio', key: 'medio' },
-		{ title: 'Recomendações com maior potencial', key: 'menos' }
+		{ title: 'Recomendações com menor potencial', key: 'menos' }
 	];
 	order.forEach(section=>{
 		let secDiv = document.createElement('div');

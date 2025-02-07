@@ -9,6 +9,7 @@ body { margin: 0; padding: 20px; font-family: Arial, sans-serif; background-colo
 button { background-color: #1DB954; border: none; padding: 10px 20px; color: #fff; font-size: 16px; border-radius: 25px; cursor: pointer; }
 #login-btn { display: block; margin: 50px auto; }
 #progress { margin: 20px 0; text-align: center; }
+#progress-bar { width: 100%; }
 .secao { margin-bottom: 20px; }
 .secao h2 { margin-bottom: 10px; }
 .lista { display: flex; flex-direction: column; gap: 10px; }
@@ -23,33 +24,52 @@ button { background-color: #1DB954; border: none; padding: 10px 20px; color: #ff
 </head>
 <body>
 <div id="login-container"><button id="login-btn">Login com Spotify</button></div>
-<div id="progress"></div>
+<div id="progress">
+  <progress id="progress-bar" value="0" max="100"></progress>
+  <div id="progress-text"></div>
+</div>
 <div id="result-container"></div>
 <button id="new-rec-btn" style="display:none;">Gerar novas recomendações</button>
 <script>
 (async function(){
 const clientId = 'cdbe0b644b984a6e98839e352d87bb3d', redirectUri = 'https://gandradeiasi.github.io/recomendador-de-artista-2/', scopes = 'user-top-read';
 let accessToken = null, topArtistsSet = new Set(), genreDict = null;
-const loginBtn = document.getElementById('login-btn'), loginContainer = document.getElementById('login-container'), progressDiv = document.getElementById('progress'), resultContainer = document.getElementById('result-container'), newRecBtn = document.getElementById('new-rec-btn');
-function updateProgress(msg){ progressDiv.innerText = msg; }
-function randomChoice(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
+const loginBtn = document.getElementById('login-btn'),
+      loginContainer = document.getElementById('login-container'),
+      progressDiv = document.getElementById('progress'),
+      progressBar = document.getElementById('progress-bar'),
+      progressText = document.getElementById('progress-text'),
+      resultContainer = document.getElementById('result-container'),
+      newRecBtn = document.getElementById('new-rec-btn');
+function showProgress(message, current, total){
+	if(total !== undefined){
+		progressBar.max = total;
+		progressBar.value = current;
+		progressText.innerText = message + ' (' + current + ' / ' + total + ')';
+	} else {
+		progressText.innerText = message;
+	}
+}
+function randomChoice(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
 function removeChildren(el){ while(el.firstChild){ el.removeChild(el.firstChild); } }
-function parseHash(){ let hash = window.location.hash.substring(1), params = {}; hash.split('&').forEach(part=>{ let [key,value] = part.split('='); params[key] = value; }); return params; }
+function parseHash(){ let hash = window.location.hash.substring(1), params = {}; hash.split('&').forEach(part=>{ let [key,value] = part.split('='); params[key]=value; }); return params; }
 function getToday(){ let d = new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
 function spotifyLogin(){ let state = Math.random().toString(36).substring(2), authUrl = 'https://accounts.spotify.com/authorize?client_id='+clientId+'&response_type=token&redirect_uri='+encodeURIComponent(redirectUri)+'&scope='+encodeURIComponent(scopes)+'&state='+state; window.location = authUrl; }
 if(window.location.hash){ let params = parseHash(); if(params.access_token){ accessToken = params.access_token; window.history.replaceState({}, document.title, redirectUri); } }
-if(!accessToken){ loginBtn.addEventListener('click', ()=>{ spotifyLogin(); }); return; }
+if(!accessToken){ loginBtn.addEventListener('click',()=>{ spotifyLogin(); }); return; }
 loginContainer.style.display = 'none';
 newRecBtn.style.display = 'none';
-let storedDict = localStorage.getItem('genreDict'), storedDate = localStorage.getItem('genreDictDate'), storedTopArtists = localStorage.getItem('topArtistsSet');
-if(storedDict && storedDate===getToday() && storedTopArtists){
+let storedDict = localStorage.getItem('genreDict'),
+    storedDate = localStorage.getItem('genreDictDate'),
+    storedTopArtists = localStorage.getItem('topArtistsSet');
+if(storedDict && storedDate === getToday() && storedTopArtists){
 	genreDict = JSON.parse(storedDict);
 	topArtistsSet = new Set(JSON.parse(storedTopArtists));
-	updateProgress('Dados de gênero carregados do armazenamento local.');
+	showProgress('Dados de gênero carregados do armazenamento local.');
 } else {
 	genreDict = {};
 	let tracksFetched = 0, limit = 50, offset = 0, maxTracks = 2000, total = Infinity, allTracks = [];
-	updateProgress('Buscando top tracks...');
+	showProgress('Buscando top tracks...', 0, 100);
 	while(tracksFetched < maxTracks && offset < total){
 		let resp = await fetch('https://api.spotify.com/v1/me/top/tracks?limit='+limit+'&offset='+offset, { headers: { 'Authorization': 'Bearer ' + accessToken } });
 		let data = await resp.json();
@@ -57,7 +77,7 @@ if(storedDict && storedDate===getToday() && storedTopArtists){
 		let items = data.items;
 		allTracks = allTracks.concat(items);
 		tracksFetched += items.length;
-		updateProgress('Tracks buscadas: '+tracksFetched+' de '+Math.min(total, maxTracks));
+		showProgress('Tracks buscadas', tracksFetched, Math.min(total, maxTracks));
 		offset += limit;
 		if(items.length < limit) break;
 	}
@@ -74,7 +94,7 @@ if(storedDict && storedDate===getToday() && storedTopArtists){
 		let resp = await fetch('https://api.spotify.com/v1/artists?ids='+batch.join(','), { headers: { 'Authorization': 'Bearer ' + accessToken } });
 		let data = await resp.json();
 		data.artists.forEach(artist=>{ artistDetails[artist.id] = artist; });
-		updateProgress('Artistas buscados: '+Math.min(i + 50, artistIdsArray.length));
+		showProgress('Artistas buscados', Math.min(i + 50, artistIdsArray.length), artistIdsArray.length);
 	}
 	allTracks.forEach(track=>{
 		let genresSet = new Set();
@@ -91,16 +111,11 @@ if(storedDict && storedDate===getToday() && storedTopArtists){
 console.log('Dicionário de gêneros:', genreDict);
 async function searchArtistForGenre(genre){
 	console.log('Iniciando busca para gênero:', genre);
-	let query = 'genre:"' + genre + '"';
-	let offset = 0, limit = 50, validArtists = [];
+	let query = 'genre:"' + genre + '"', offset = 0, limit = 50, validArtists = [];
 	let resp0 = await fetch('https://api.spotify.com/v1/search?q='+encodeURIComponent(query)+'&type=artist&limit='+limit+'&offset='+offset, { headers: { 'Authorization': 'Bearer ' + accessToken } });
-	let data0 = await resp0.json();
-	let total = data0.artists.total;
+	let data0 = await resp0.json(), total = data0.artists.total;
 	console.log('Total de artistas para', genre, ':', total);
-	if(total === 0){
-		updateProgress('Nenhum artista encontrado para o gênero '+genre);
-		return null;
-	}
+	if(total === 0){ showProgress('Nenhum artista encontrado para o gênero '+genre); return null; }
 	while(offset < total){
 		let resp = await fetch('https://api.spotify.com/v1/search?q='+encodeURIComponent(query)+'&type=artist&limit='+limit+'&offset='+offset, { headers: { 'Authorization': 'Bearer ' + accessToken } });
 		let data = await resp.json(), artists = data.artists.items;
@@ -110,7 +125,7 @@ async function searchArtistForGenre(genre){
 				validArtists.push(artist);
 			}
 		});
-		updateProgress('Gênero: '+genre+' | Offset: '+offset+' | Artistas válidos: '+validArtists.length);
+		showProgress('Gênero: ' + genre + ' | Offset: ' + offset + ' | Artistas válidos: ' + validArtists.length);
 		if(artists.length < limit) break;
 		offset += limit;
 	}
@@ -143,7 +158,7 @@ async function getValidRecommendationsForGroup(candidateGenres){
 async function generateRecommendations(){
 	removeChildren(resultContainer);
 	newRecBtn.style.display = 'none';
-	updateProgress('Gerando recomendações...');
+	showProgress('Gerando recomendações...');
 	let scores = Array.from(new Set(Object.values(genreDict))).sort((a, b) => a - b);
 	console.log('Scores únicos:', scores);
 	let n = scores.length, base = Math.floor(n / 3), rem = n % 3;
@@ -163,16 +178,16 @@ async function generateRecommendations(){
 	console.log('Recomendações finais - Menos:', recMenos, 'Médio:', recMedio, 'Mais:', recMais);
 	let finalResult = { menos: recMenos, medio: recMedio, mais: recMais };
 	renderResults(finalResult);
-	updateProgress('');
+	showProgress('');
 	newRecBtn.style.display = 'block';
 }
 function renderResults(data){
 	removeChildren(resultContainer);
 	console.log('Final result to render:', data);
 	let order = [
-		{ title: 'Gêneros que você mais ouve', key: 'mais' },
-		{ title: 'Gêneros que você ouve mais ou nenos', key: 'medio' },
-		{ title: 'Gêneros que você menos ouve', key: 'menos' }
+		{ title: 'Recomendações com maior potencial', key: 'mais' },
+		{ title: 'Recomendações com potencial médio', key: 'medio' },
+		{ title: 'Recomendações com maior potencial', key: 'menos' }
 	];
 	order.forEach(section=>{
 		let secDiv = document.createElement('div');
@@ -183,8 +198,7 @@ function renderResults(data){
 		let listDiv = document.createElement('div');
 		listDiv.className = 'lista';
 		data[section.key].forEach(item=>{
-			let artist = item.artist;
-			let searchGenre = item.searchGenre;
+			let artist = item.artist, searchGenre = item.searchGenre;
 			console.log('Renderizando artista:', artist, 'com searchGenre:', searchGenre);
 			let a = document.createElement('a');
 			a.className = 'card';

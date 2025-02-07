@@ -1,1 +1,328 @@
-Em progresso
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Genre Explorer</title>
+    <style>
+        :root {
+            --spotify-green: #1DB954;
+            --spotify-black: #191414;
+            --spotify-white: #FFFFFF;
+            --spotify-gray: #B3B3B3;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--spotify-black);
+            color: var(--spotify-white);
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .login-container {
+            text-align: center;
+            margin-top: 50px;
+        }
+
+        .btn {
+            background-color: var(--spotify-green);
+            color: var(--spotify-white);
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 16px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .progress {
+            margin: 20px 0;
+            text-align: center;
+            color: var(--spotify-gray);
+        }
+
+        .resultado {
+            margin-top: 30px;
+        }
+
+        .secao {
+            margin-bottom: 30px;
+        }
+
+        .lista {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .artista-card {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            background-color: #282828;
+            border-radius: 8px;
+            text-decoration: none;
+            color: var(--spotify-white);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .artista-card img {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            margin-right: 15px;
+        }
+
+        .nome-generos {
+            flex: 1;
+        }
+
+        .generos-artista {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 5px;
+        }
+
+        .tag-genero {
+            background-color: #404040;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+        }
+
+        h1, h2 {
+            color: var(--spotify-white);
+            margin: 0 0 15px 0;
+        }
+
+        h1 {
+            font-size: 24px;
+            text-align: center;
+        }
+
+        h2 {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="loginSection" class="login-container">
+            <button class="btn" onclick="login()">Login com Spotify</button>
+        </div>
+
+        <div id="progressSection" class="progress hidden">
+            <p>Carregando dados...</p>
+        </div>
+
+        <div id="resultSection" class="resultado hidden">
+            <div class="secao" id="maisSection"></div>
+            <div class="secao" id="medioSection"></div>
+            <div class="secao" id="menosSection"></div>
+            <button class="btn" onclick="runRecommendationPhase()" style="width: 100%; margin-top: 20px;">
+                Gerar novas recomendações
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const CLIENT_ID = '09a660cb274a4fcd9b4a818fd97a5f36';
+        const REDIRECT_URI = 'https://gandradeiasi.github.io/recomendador-de-artista-2/';
+        const SCOPES = 'user-top-read';
+        
+        let accessToken = null;
+        let topArtistsIds = new Set();
+        let genreCounts = {};
+        let allGenres = {};
+
+        function login() {
+            const authUrl = `https://accounts.spotify.com/authorize?client_id=${CLIENT_ID}&response_type=token&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&scope=${encodeURIComponent(SCOPES)}`;
+            window.location.href = authUrl;
+        }
+
+        async function initializeApp() {
+            const hash = window.location.hash.substring(1);
+            const params = new URLSearchParams(hash);
+            accessToken = params.get('access_token');
+
+            if (accessToken) {
+                document.getElementById('loginSection').classList.add('hidden');
+                document.getElementById('progressSection').classList.remove('hidden');
+                
+                const storedData = getStoredGenreData();
+                if (storedData) {
+                    genreCounts = storedData.genreCounts;
+                    topArtistsIds = new Set(storedData.topArtistsIds);
+                    runRecommendationPhase();
+                } else {
+                    await fetchTopTracks();
+                    storeGenreData();
+                    runRecommendationPhase();
+                }
+            }
+        }
+
+        async function fetchTopTracks() {
+            let url = 'https://api.spotify.com/v1/me/top/tracks?limit=50';
+            let allTracks = [];
+
+            while (url) {
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                const data = await response.json();
+                allTracks = allTracks.concat(data.items);
+                url = data.next;
+            }
+
+            processTracks(allTracks);
+        }
+
+        function processTracks(tracks) {
+            tracks.forEach(track => {
+                track.artists.forEach(artist => {
+                    topArtistsIds.add(artist.id);
+                    artist.genres.forEach(genre => {
+                        genreCounts[genre] = (genreCounts[genre] || 0) + 1;
+                    });
+                });
+            });
+        }
+
+        function storeGenreData() {
+            const storageData = {
+                genreCounts,
+                topArtistsIds: Array.from(topArtistsIds),
+                timestamp: new Date().getTime()
+            };
+            localStorage.setItem('genreData', JSON.stringify(storageData));
+        }
+
+        function getStoredGenreData() {
+            const storedData = JSON.parse(localStorage.getItem('genreData'));
+            if (!storedData) return null;
+            
+            const today = new Date();
+            const storedDate = new Date(storedData.timestamp);
+            if (today.toDateString() !== storedDate.toDateString()) return null;
+            
+            return {
+                genreCounts: storedData.genreCounts,
+                topArtistsIds: storedData.topArtistsIds
+            };
+        }
+
+        async function runRecommendationPhase() {
+            document.getElementById('progressSection').classList.remove('hidden');
+            document.getElementById('resultSection').classList.add('hidden');
+
+            const sortedScores = Array.from(new Set(Object.values(genreCounts))).sort((a, b) => a - b);
+            const [menos, medio, mais] = splitScores(sortedScores);
+
+            const recommendations = {
+                mais: await generateRecommendations(mais),
+                medio: await generateRecommendaciones(medio),
+                menos: await generateRecommendations(menos)
+            };
+
+            displayRecommendations(recommendations);
+            document.getElementById('progressSection').classList.add('hidden');
+            document.getElementById('resultSection').classList.remove('hidden');
+        }
+
+        function splitScores(scores) {
+            const total = scores.length;
+            const part = Math.floor(total / 3);
+            const remainder = total % 3;
+
+            return [
+                scores.slice(0, part),
+                scores.slice(part, part + part + remainder),
+                scores.slice(part + part + remainder)
+            ];
+        }
+
+        async function generateRecommendations(scores) {
+            const recommendations = [];
+            for (const score of scores) {
+                const genres = Object.keys(genreCounts).filter(g => genreCounts[g] === score);
+                const selectedGenre = genres[Math.floor(Math.random() * genres.length)];
+                const artist = await searchArtistByGenre(selectedGenre);
+                if (artist) recommendations.push(artist);
+            }
+            return recommendations;
+        }
+
+        async function searchArtistByGenre(genre) {
+            const useQuotes = Math.random() > 0.5;
+            const query = `genre:${useQuotes ? `"${genre}"` : genre}`;
+            let url = `https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=artist&limit=50`;
+            
+            try {
+                const response = await fetch(url, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                const data = await response.json();
+                const validArtists = data.artists.items.filter(a => 
+                    !topArtistsIds.has(a.id) && 
+                    a.genres.includes(genre)
+                );
+                
+                if (validArtists.length > 0) {
+                    return validArtists[Math.floor(Math.random() * validArtists.length)];
+                }
+            } catch (error) {
+                console.error('Search error:', error);
+            }
+            return null;
+        }
+
+        function displayRecommendations(recommendations) {
+            const sections = {
+                mais: { title: 'Gêneros que você mais ouve', element: document.getElementById('maisSection') },
+                medio: { title: 'Gêneros que você ouve mais ou menos', element: document.getElementById('medioSection') },
+                menos: { title: 'Gêneros que você menos ouve', element: document.getElementById('menosSection') }
+            };
+
+            Object.entries(sections).forEach(([key, section]) => {
+                section.element.innerHTML = `
+                    <h2>${section.title}</h2>
+                    <div class="lista">
+                        ${recommendations[key].map(artist => artist ? createArtistCard(artist) : '').join('')}
+                    </div>
+                `;
+            });
+        }
+
+        function createArtistCard(artist) {
+            return `
+                <a href="${artist.external_urls.spotify}" class="artista-card" target="_blank">
+                    <img src="${artist.images[0]?.url || 'https://via.placeholder.com/60'}" alt="${artist.name}">
+                    <div class="nome-generos">
+                        <h3>${artist.name}</h3>
+                        <div class="generos-artista">
+                            ${artist.genres.slice(0, 3).map(g => `<div class="tag-genero">${g}</div>`).join('')}
+                        </div>
+                    </div>
+                </a>
+            `;
+        }
+
+        window.addEventListener('load', initializeApp);
+        window.addEventListener('hashchange', initializeApp);
+    </script>
+</body>
+</html>

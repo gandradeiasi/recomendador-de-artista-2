@@ -101,7 +101,7 @@
           offset += 50;
         }
         console.log('Artistas encontrados para o gênero ' + genre + ':', validArtists);
-        if(validArtists.length > 0) return randomChoice(validArtists);
+        if(validArtists.length >= 3) return randomChoice(validArtists);
         return null;
       }
       async function generateRecommendations() {

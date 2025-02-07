@@ -90,7 +90,7 @@
       }
       console.log('Dicionário de gêneros:', genreDict);
       async function searchArtistForGenre(genre) {
-        let useQuotes = Math.random() < 0.5, query = 'genre:' + (useQuotes ? '"' + genre + '"' : genre), offset = 0, limit = 50, maxResults = 1000, validArtists = [];
+        let useQuotes = Math.random() < 0.5, query = 'genre:' + (useQuotes ? '"' + genre + '"' : genre), offset = 0, limit = 50, maxResults = 5000, validArtists = [];
         let resp0 = await fetch('https://api.spotify.com/v1/search?q=' + encodeURIComponent(query) + '&type=artist&limit=' + limit + '&offset=' + offset, { headers: { 'Authorization': 'Bearer ' + accessToken } });
         let data0 = await resp0.json(), total = data0.artists.total;
         if(total === 0) { updateProgress('Nenhum artista encontrado para o gênero ' + genre); return null; }

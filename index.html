@@ -32,23 +32,23 @@ const clientId = 'cdbe0b644b984a6e98839e352d87bb3d', redirectUri = 'https://gand
 let accessToken = null, topArtistsSet = new Set(), genreDict = null;
 const loginBtn = document.getElementById('login-btn'), loginContainer = document.getElementById('login-container'), progressDiv = document.getElementById('progress'), resultContainer = document.getElementById('result-container'), newRecBtn = document.getElementById('new-rec-btn');
 function updateProgress(msg){ progressDiv.innerText = msg; }
-function randomChoice(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function randomChoice(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
 function removeChildren(el){ while(el.firstChild){ el.removeChild(el.firstChild); } }
-function parseHash(){ let hash = window.location.hash.substring(1), params = {}; hash.split('&').forEach(part => { let [key,value] = part.split('='); params[key]=value; }); return params; }
-function getToday(){ let d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
+function parseHash(){ let hash = window.location.hash.substring(1), params = {}; hash.split('&').forEach(part=>{ let [key, value] = part.split('='); params[key] = value; }); return params; }
+function getToday(){ let d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
 function spotifyLogin(){ let state = Math.random().toString(36).substring(2), authUrl = 'https://accounts.spotify.com/authorize?client_id='+clientId+'&response_type=token&redirect_uri='+encodeURIComponent(redirectUri)+'&scope='+encodeURIComponent(scopes)+'&state='+state; window.location = authUrl; }
 if(window.location.hash){ let params = parseHash(); if(params.access_token){ accessToken = params.access_token; window.history.replaceState({}, document.title, redirectUri); } }
 if(!accessToken){ loginBtn.addEventListener('click',()=>{ spotifyLogin(); }); return; }
 loginContainer.style.display = 'none';
 newRecBtn.style.display = 'none';
 let storedDict = localStorage.getItem('genreDict'), storedDate = localStorage.getItem('genreDictDate'), storedTopArtists = localStorage.getItem('topArtistsSet');
-if(storedDict && storedDate===getToday() && storedTopArtists){
+if(storedDict && storedDate === getToday() && storedTopArtists){
 	genreDict = JSON.parse(storedDict);
 	topArtistsSet = new Set(JSON.parse(storedTopArtists));
 	updateProgress('Dados de gênero carregados do armazenamento local.');
 } else {
 	genreDict = {};
-	let tracksFetched = 0, limit = 50, offset = 0, maxTracks = 1000, total = Infinity, allTracks = [];
+	let tracksFetched = 0, limit = 50, offset = 0, maxTracks = 2000, total = Infinity, allTracks = [];
 	updateProgress('Buscando top tracks...');
 	while(tracksFetched < maxTracks && offset < total){
 		let resp = await fetch('https://api.spotify.com/v1/me/top/tracks?limit='+limit+'&offset='+offset, { headers: { 'Authorization': 'Bearer ' + accessToken } });
@@ -57,7 +57,7 @@ if(storedDict && storedDate===getToday() && storedTopArtists){
 		let items = data.items;
 		allTracks = allTracks.concat(items);
 		tracksFetched += items.length;
-		updateProgress('Tracks buscadas: '+tracksFetched);
+		updateProgress('Tracks buscadas: ' + tracksFetched + ' de ' + Math.min(total, maxTracks));
 		offset += limit;
 		if(items.length < limit) break;
 	}
@@ -69,12 +69,12 @@ if(storedDict && storedDate===getToday() && storedTopArtists){
 		});
 	});
 	let artistDetails = {}, artistIdsArray = Array.from(artistIdsSet);
-	for(let i=0; i<artistIdsArray.length; i+=50){
-		let batch = artistIdsArray.slice(i, i+50);
+	for(let i = 0; i < artistIdsArray.length; i += 50){
+		let batch = artistIdsArray.slice(i, i + 50);
 		let resp = await fetch('https://api.spotify.com/v1/artists?ids='+batch.join(','), { headers: { 'Authorization': 'Bearer ' + accessToken } });
 		let data = await resp.json();
-		data.artists.forEach(artist=>{ artistDetails[artist.id]=artist; });
-		updateProgress('Artistas buscados: '+Math.min(i+50, artistIdsArray.length));
+		data.artists.forEach(artist=>{ artistDetails[artist.id] = artist; });
+		updateProgress('Artistas buscados: ' + Math.min(i + 50, artistIdsArray.length));
 	}
 	allTracks.forEach(track=>{
 		let genresSet = new Set();
@@ -82,7 +82,7 @@ if(storedDict && storedDate===getToday() && storedTopArtists){
 			let det = artistDetails[artist.id];
 			if(det && det.genres) det.genres.forEach(g=>genresSet.add(g));
 		});
-		genresSet.forEach(g=>{ genreDict[g]=(genreDict[g]||0)+1; });
+		genresSet.forEach(g=>{ genreDict[g] = (genreDict[g] || 0) + 1; });
 	});
 	localStorage.setItem('genreDict', JSON.stringify(genreDict));
 	localStorage.setItem('genreDictDate', getToday());
@@ -91,22 +91,26 @@ if(storedDict && storedDate===getToday() && storedTopArtists){
 console.log('Dicionário de gêneros:', genreDict);
 async function searchArtistForGenre(genre){
 	console.log('Iniciando busca para gênero:', genre);
-	let useQuotes = Math.random()<0.5, query = 'genre:'+(useQuotes?'"'+genre+'"':genre), offset = 0, limit = 50, maxResults = 1000, validArtists = [];
+	let query = 'genre:"' + genre + '"';
+	let offset = 0, limit = 50, validArtists = [];
 	let resp0 = await fetch('https://api.spotify.com/v1/search?q='+encodeURIComponent(query)+'&type=artist&limit='+limit+'&offset='+offset, { headers: { 'Authorization': 'Bearer ' + accessToken } });
 	let data0 = await resp0.json();
 	let total = data0.artists.total;
 	console.log('Total de artistas para', genre, ':', total);
-	if(total===0){ updateProgress('Nenhum artista encontrado para o gênero '+genre); return null; }
-	while(offset < Math.min(total, maxResults)){
+	if(total === 0){
+		updateProgress('Nenhum artista encontrado para o gênero ' + genre);
+		return null;
+	}
+	while(offset < total){
 		let resp = await fetch('https://api.spotify.com/v1/search?q='+encodeURIComponent(query)+'&type=artist&limit='+limit+'&offset='+offset, { headers: { 'Authorization': 'Bearer ' + accessToken } });
 		let data = await resp.json(), artists = data.artists.items;
 		console.log('Offset:', offset, 'para gênero:', genre, 'Artistas retornados:', artists.length);
 		artists.forEach(artist=>{
-			if(!topArtistsSet.has(artist.id) && artist.genres && artist.genres.length>0 && !validArtists.find(a=>a.id===artist.id)){
+			if(!topArtistsSet.has(artist.id) && artist.genres && artist.genres.length > 0 && !validArtists.find(a => a.id === artist.id)){
 				validArtists.push(artist);
 			}
 		});
-		console.log('ValidArtists length para', genre, ':', validArtists.length);
+		updateProgress('Gênero: ' + genre + ' | Offset: ' + offset + ' | Artistas válidos: ' + validArtists.length);
 		if(validArtists.length >= 3) break;
 		if(artists.length < limit) break;
 		offset += limit;
@@ -123,7 +127,7 @@ async function getValidRecommendationsForGroup(candidateGenres){
 	let recommendations = [];
 	let pool = candidateGenres.slice();
 	while(recommendations.length < 3 && pool.length > 0){
-		let index = Math.floor(Math.random()*pool.length);
+		let index = Math.floor(Math.random() * pool.length);
 		let genre = pool.splice(index, 1)[0];
 		console.log("Tentando gênero:", genre);
 		let artist = await searchArtistForGenre(genre);
@@ -141,16 +145,16 @@ async function generateRecommendations(){
 	removeChildren(resultContainer);
 	newRecBtn.style.display = 'none';
 	updateProgress('Gerando recomendações...');
-	let scores = Array.from(new Set(Object.values(genreDict))).sort((a,b)=>a-b);
+	let scores = Array.from(new Set(Object.values(genreDict))).sort((a, b) => a - b);
 	console.log('Scores únicos:', scores);
-	let n = scores.length, base = Math.floor(n/3), rem = n % 3;
+	let n = scores.length, base = Math.floor(n / 3), rem = n % 3;
 	let menosGroupScores = scores.slice(0, base);
-	let medioGroupScores = scores.slice(base, base+base+rem);
-	let maisGroupScores = scores.slice(base+base+rem);
+	let medioGroupScores = scores.slice(base, base + base + rem);
+	let maisGroupScores = scores.slice(base + base + rem);
 	console.log('Scores menos:', menosGroupScores, 'Scores médio:', medioGroupScores, 'Scores mais:', maisGroupScores);
-	let candidateMenos = Object.keys(genreDict).filter(g=>menosGroupScores.includes(genreDict[g]));
-	let candidateMedio = Object.keys(genreDict).filter(g=>medioGroupScores.includes(genreDict[g]));
-	let candidateMais = Object.keys(genreDict).filter(g=>maisGroupScores.includes(genreDict[g]));
+	let candidateMenos = Object.keys(genreDict).filter(g => menosGroupScores.includes(genreDict[g]));
+	let candidateMedio = Object.keys(genreDict).filter(g => medioGroupScores.includes(genreDict[g]));
+	let candidateMais = Object.keys(genreDict).filter(g => maisGroupScores.includes(genreDict[g]));
 	console.log('Candidate gêneros menos:', candidateMenos);
 	console.log('Candidate gêneros médio:', candidateMedio);
 	console.log('Candidate gêneros mais:', candidateMais);
@@ -166,7 +170,11 @@ async function generateRecommendations(){
 function renderResults(data){
 	removeChildren(resultContainer);
 	console.log('Final result to render:', data);
-	let order = [{ title: 'Gêneros que você mais ouve', key: 'mais' }, { title: 'Gêneros que você ouve mais ou nenos', key: 'medio' }, { title: 'Gêneros que você menos ouve', key: 'menos' }];
+	let order = [
+		{ title: 'Gêneros que você mais ouve', key: 'mais' },
+		{ title: 'Gêneros que você ouve mais ou nenos', key: 'medio' },
+		{ title: 'Gêneros que você menos ouve', key: 'menos' }
+	];
 	order.forEach(section=>{
 		let secDiv = document.createElement('div');
 		secDiv.className = 'secao';
@@ -184,7 +192,7 @@ function renderResults(data){
 			a.href = artist.external_urls.spotify;
 			a.target = '_blank';
 			let img = document.createElement('img');
-			img.src = (artist.images[0]?artist.images[0].url:'https://via.placeholder.com/60');
+			img.src = (artist.images[0] ? artist.images[0].url : 'https://via.placeholder.com/60');
 			a.appendChild(img);
 			let infoDiv = document.createElement('div');
 			infoDiv.className = 'nome-generos';

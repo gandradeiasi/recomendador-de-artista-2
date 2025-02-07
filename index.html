@@ -34,15 +34,15 @@ const loginBtn = document.getElementById('login-btn'), loginContainer = document
 function updateProgress(msg){ progressDiv.innerText = msg; }
 function randomChoice(arr){ return arr[Math.floor(Math.random() * arr.length)]; }
 function removeChildren(el){ while(el.firstChild){ el.removeChild(el.firstChild); } }
-function parseHash(){ let hash = window.location.hash.substring(1), params = {}; hash.split('&').forEach(part=>{ let [key, value] = part.split('='); params[key] = value; }); return params; }
-function getToday(){ let d = new Date(); return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate(); }
+function parseHash(){ let hash = window.location.hash.substring(1), params = {}; hash.split('&').forEach(part=>{ let [key,value] = part.split('='); params[key] = value; }); return params; }
+function getToday(){ let d = new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
 function spotifyLogin(){ let state = Math.random().toString(36).substring(2), authUrl = 'https://accounts.spotify.com/authorize?client_id='+clientId+'&response_type=token&redirect_uri='+encodeURIComponent(redirectUri)+'&scope='+encodeURIComponent(scopes)+'&state='+state; window.location = authUrl; }
 if(window.location.hash){ let params = parseHash(); if(params.access_token){ accessToken = params.access_token; window.history.replaceState({}, document.title, redirectUri); } }
-if(!accessToken){ loginBtn.addEventListener('click',()=>{ spotifyLogin(); }); return; }
+if(!accessToken){ loginBtn.addEventListener('click', ()=>{ spotifyLogin(); }); return; }
 loginContainer.style.display = 'none';
 newRecBtn.style.display = 'none';
 let storedDict = localStorage.getItem('genreDict'), storedDate = localStorage.getItem('genreDictDate'), storedTopArtists = localStorage.getItem('topArtistsSet');
-if(storedDict && storedDate === getToday() && storedTopArtists){
+if(storedDict && storedDate===getToday() && storedTopArtists){
 	genreDict = JSON.parse(storedDict);
 	topArtistsSet = new Set(JSON.parse(storedTopArtists));
 	updateProgress('Dados de gênero carregados do armazenamento local.');
@@ -57,7 +57,7 @@ if(storedDict && storedDate === getToday() && storedTopArtists){
 		let items = data.items;
 		allTracks = allTracks.concat(items);
 		tracksFetched += items.length;
-		updateProgress('Tracks buscadas: ' + tracksFetched + ' de ' + Math.min(total, maxTracks));
+		updateProgress('Tracks buscadas: '+tracksFetched+' de '+Math.min(total, maxTracks));
 		offset += limit;
 		if(items.length < limit) break;
 	}
@@ -74,7 +74,7 @@ if(storedDict && storedDate === getToday() && storedTopArtists){
 		let resp = await fetch('https://api.spotify.com/v1/artists?ids='+batch.join(','), { headers: { 'Authorization': 'Bearer ' + accessToken } });
 		let data = await resp.json();
 		data.artists.forEach(artist=>{ artistDetails[artist.id] = artist; });
-		updateProgress('Artistas buscados: ' + Math.min(i + 50, artistIdsArray.length));
+		updateProgress('Artistas buscados: '+Math.min(i + 50, artistIdsArray.length));
 	}
 	allTracks.forEach(track=>{
 		let genresSet = new Set();
@@ -98,7 +98,7 @@ async function searchArtistForGenre(genre){
 	let total = data0.artists.total;
 	console.log('Total de artistas para', genre, ':', total);
 	if(total === 0){
-		updateProgress('Nenhum artista encontrado para o gênero ' + genre);
+		updateProgress('Nenhum artista encontrado para o gênero '+genre);
 		return null;
 	}
 	while(offset < total){
@@ -106,17 +106,16 @@ async function searchArtistForGenre(genre){
 		let data = await resp.json(), artists = data.artists.items;
 		console.log('Offset:', offset, 'para gênero:', genre, 'Artistas retornados:', artists.length);
 		artists.forEach(artist=>{
-			if(!topArtistsSet.has(artist.id) && artist.genres && artist.genres.length > 0 && !validArtists.find(a => a.id === artist.id)){
+			if(!topArtistsSet.has(artist.id) && artist.genres && artist.genres.length > 0 && !validArtists.find(a=>a.id===artist.id)){
 				validArtists.push(artist);
 			}
 		});
-		updateProgress('Gênero: ' + genre + ' | Offset: ' + offset + ' | Artistas válidos: ' + validArtists.length);
-		if(validArtists.length >= 3) break;
+		updateProgress('Gênero: '+genre+' | Offset: '+offset+' | Artistas válidos: '+validArtists.length);
 		if(artists.length < limit) break;
 		offset += limit;
 	}
-	if(validArtists.length < 3){
-		console.log('Não foram encontrados 3 artistas válidos para o gênero:', genre);
+	if(validArtists.length === 0){
+		console.log('Nenhum artista válido encontrado para o gênero:', genre);
 		return null;
 	}
 	console.log('ValidArtists para', genre, ':', validArtists);
@@ -127,8 +126,8 @@ async function getValidRecommendationsForGroup(candidateGenres){
 	let recommendations = [];
 	let pool = candidateGenres.slice();
 	while(recommendations.length < 3 && pool.length > 0){
-		let index = Math.floor(Math.random() * pool.length);
-		let genre = pool.splice(index, 1)[0];
+		let index = Math.floor(Math.random()*pool.length);
+		let genre = pool.splice(index,1)[0];
 		console.log("Tentando gênero:", genre);
 		let artist = await searchArtistForGenre(genre);
 		if(artist){

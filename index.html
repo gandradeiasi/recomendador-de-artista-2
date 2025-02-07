@@ -62,15 +62,12 @@
           offset += limit;
           if(items.length < limit) break;
         }
-        let artistIdsSet = new Set(), trackArtistsMap = [];
+        let artistIdsSet = new Set();
         allTracks.forEach(track => {
-          let ids = [];
           track.artists.forEach(artist => {
-            ids.push(artist.id);
             artistIdsSet.add(artist.id);
+            topArtistsSet.add(artist.id);
           });
-          trackArtistsMap.push(ids);
-          track.artists.forEach(artist => { topArtistsSet.add(artist.id); });
         });
         let artistDetails = {}, artistIdsArray = Array.from(artistIdsSet);
         for(let i = 0; i < artistIdsArray.length; i += 50) {
@@ -80,11 +77,11 @@
           data.artists.forEach(artist => { artistDetails[artist.id] = artist; });
           updateProgress('Artistas buscados: ' + Math.min(i + 50, artistIdsArray.length));
         }
-        allTracks.forEach(ids => {
+        allTracks.forEach(track => {
           let genresSet = new Set();
-          ids.forEach(id => {
-            let artist = artistDetails[id];
-            if(artist && artist.genres) artist.genres.forEach(g => genresSet.add(g));
+          track.artists.forEach(artist => {
+            let det = artistDetails[artist.id];
+            if(det && det.genres) det.genres.forEach(g => genresSet.add(g));
           });
           genresSet.forEach(g => { genreDict[g] = (genreDict[g] || 0) + 1; });
         });
@@ -128,12 +125,18 @@
         console.log('Recomendações menos:', recMenos);
         console.log('Recomendações médio:', recMedio);
         console.log('Recomendações mais:', recMais);
-        let groups = { mais: recMais, medio: recMedio, menos: recMenos }, finalResult = { mais: [], medio: [], menos: [] };
-        for(let group in groups) {
-          for(let genre of groups[group]) {
-            let artist = await searchArtistForGenre(genre);
-            if(artist) finalResult[group].push(artist);
-          }
+        let finalResult = { mais: [], medio: [], menos: [] };
+        for(let genre of recMais) {
+          let artist = await searchArtistForGenre(genre);
+          if(artist) finalResult.mais.push(artist);
+        }
+        for(let genre of recMedio) {
+          let artist = await searchArtistForGenre(genre);
+          if(artist) finalResult.medio.push(artist);
+        }
+        for(let genre of recMenos) {
+          let artist = await searchArtistForGenre(genre);
+          if(artist) finalResult.menos.push(artist);
         }
         renderResults(finalResult);
         updateProgress('');

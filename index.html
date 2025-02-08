@@ -62,7 +62,7 @@ if(storedDict && storedDate === getToday() && storedTopArtists){
 	showProgress('Dados de gênero carregados do armazenamento local.');
 } else {
 	genreDict = {};
-	let tracksFetched = 0, limit = 50, offset = 0, maxTracks = 150, total = Infinity, allTracks = [];
+	let tracksFetched = 0, limit = 50, offset = 0, maxTracks = 2000, total = Infinity, allTracks = [];
 	showProgress('Buscando top tracks...', 0, 100);
 	while(tracksFetched < maxTracks && offset < total){
 		let resp = await fetch('https://api.spotify.com/v1/me/top/tracks?limit='+limit+'&offset='+offset, { headers: { 'Authorization': 'Bearer ' + accessToken } });
@@ -78,6 +78,7 @@ if(storedDict && storedDate === getToday() && storedTopArtists){
 	let artistIdsSet = new Set();
 	console.log(allTracks);
 	console.log('Top tracks:');
+    allTracksSample = allTracks.slice(0,150);
 	allTracks.forEach(track=>{
 		console.log(track.artists.map(x => x.name).join(', '), ' - ', track.name);
 		track.artists.forEach(artist=>{
@@ -93,7 +94,7 @@ if(storedDict && storedDate === getToday() && storedTopArtists){
 		data.artists.forEach(artist=>{ artistDetails[artist.id] = artist; });
 		showProgress('Artistas buscados', Math.min(i + 50, artistIdsArray.length), artistIdsArray.length);
 	}
-	allTracks.forEach(track=>{
+	allTracksSample.forEach(track=>{
 		let genresSet = new Set();
 		track.artists.forEach(artist=>{
 			let det = artistDetails[artist.id];

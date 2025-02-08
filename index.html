@@ -76,7 +76,9 @@ if(storedDict && storedDate === getToday() && storedTopArtists){
 		if(items.length < limit) break;
 	}
 	let artistIdsSet = new Set();
+	console.log('Top tracks:');
 	allTracks.forEach(track=>{
+		console.log(artists.map(x => x.name).join(', '), ' - ', track.name);
 		track.artists.forEach(artist=>{
 			artistIdsSet.add(artist.id);
 			topArtistsSet.add(artist.id);

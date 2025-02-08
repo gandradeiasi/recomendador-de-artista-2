@@ -62,7 +62,7 @@ if(storedDict && storedDate === getToday() && storedTopArtists){
 	showProgress('Dados de gênero carregados do armazenamento local.');
 } else {
 	genreDict = {};
-	let tracksFetched = 0, limit = 50, offset = 0, maxTracks = 2000, total = Infinity, allTracks = [];
+	let tracksFetched = 0, limit = 50, offset = 0, maxTracks = 150, total = Infinity, allTracks = [];
 	showProgress('Buscando top tracks...', 0, 100);
 	while(tracksFetched < maxTracks && offset < total){
 		let resp = await fetch('https://api.spotify.com/v1/me/top/tracks?limit='+limit+'&offset='+offset, { headers: { 'Authorization': 'Bearer ' + accessToken } });

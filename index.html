@@ -138,7 +138,7 @@ async function getValidRecommendationsForGroup(candidateGenres){
 	console.log('Candidate gêneros:', candidateGenres);
 	let recommendations = [];
 	let pool = candidateGenres.slice();
-	while(recommendations.length < 3 && pool.length > 0){
+	while(recommendations.length < 2 && pool.length > 0){
 		let index = Math.floor(Math.random()*pool.length);
 		let genre = pool.splice(index,1)[0];
 		console.log("Tentando gênero:", genre);
